@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 )
 
 func main() {
@@ -29,19 +31,28 @@ func main() {
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 
-	addr := conn.RemoteAddr().String()
-	fmt.Printf("[tcp] connected: %s\n", addr)
+	br := bufio.NewReader(conn)
 
-	buf := make([]byte, 4096)
-	for {
-		n, err := conn.Read(buf)
-		if err != nil {
-			fmt.Printf("[tcp] disconnected: %s\n", addr)
-			return
-		}
-
-		fmt.Printf("[tcp] %s: %q \n", addr, string(buf[:n]))
-
-		conn.Write(buf[:n])
+	req, err := http.ReadRequest(br)
+	if err != nil {
+		fmt.Printf("[http] parse error: %v\n", err)
+		return
 	}
+
+	fmt.Printf("[http] %s %s %s\n", req.Method, req.URL.Path, req.Proto)
+	for name, values := range req.Header {
+		fmt.Printf("[http] %s: %s\n", name, values)
+	}
+
+	body := "Hello World\n"
+	response := fmt.Sprintf(
+		"HTTP/1.1 200 OK\r\n"+
+			"Content-Type: text/plain\r\n"+
+			"Content-Length: %d\r\n"+
+			"Connection: close\r\n"+
+			"\r\n"+
+			"%s",
+		len(body), body,
+	)
+	conn.Write([]byte(response))
 }
