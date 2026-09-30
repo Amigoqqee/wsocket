@@ -59,8 +59,9 @@ func (c *Conn) handleControl(f *Frame) error {
 		}
 		return nil
 	case OpClose:
-		c.writeFrame(NewCloseFrame(CloseNormal, ""))
-		return &CloseError{Code: CloseNormal, Reason: ""}
+		code, reason, _ := ParseClosePayload(f.Payload)
+		c.writeFrame(NewCloseFrame(code, ""))
+		return &CloseError{Code: code, Reason: reason}
 	default:
 		return fmt.Errorf("unknown control opcode: 0x%x", f.Opcode)
 	}

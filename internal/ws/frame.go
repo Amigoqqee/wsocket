@@ -127,28 +127,42 @@ func WriteFrame(w io.Writer, f *Frame) error {
 	return nil
 }
 
+func ParseClosePayload(payload []byte) (code uint16, reason string, err error) {
+	if len(payload) == 0 {
+		return 1005, "", nil
+	}
+	if len(payload) == 1 {
+		return 0, "", fmt.Errorf("invalid close payload: 1 byte")
+	}
+	code = binary.BigEndian.Uint16(payload[:2])
+	if len(payload) > 2 {
+		reason = string(payload[2:])
+	}
+	return code, reason, nil
+}
+
+func NewCloseFrame(code uint16, reason string) *Frame {
+	payload := make([]byte, 2+len(reason))
+	binary.BigEndian.PutUint16(payload[:2], code)
+	copy(payload[2:], reason)
+	return &Frame{FIN: true, Opcode: OpClose, Payload: payload}
+}
+
 func maskPayload(payload []byte, key [4]byte) {
 	for i := range payload {
 		payload[i] ^= key[i%4]
 	}
 }
 
-func NewCloseFrame(code uint16, reason string) *Frame {
-    payload := make([]byte, 2+len(reason))
-    binary.BigEndian.PutUint16(payload[:2], code)
-    copy(payload[2:], reason)
-    return &Frame{FIN: true, Opcode: OpClose, Payload: payload}
-}
-
 func NewTextFrame(data []byte) *Frame {
-    return &Frame{FIN: true, Opcode: OpText, Payload: data}
+	return &Frame{FIN: true, Opcode: OpText, Payload: data}
 }
 func NewBinaryFrame(data []byte) *Frame {
-    return &Frame{FIN: true, Opcode: OpBinary, Payload: data}
+	return &Frame{FIN: true, Opcode: OpBinary, Payload: data}
 }
 func NewPingFrame(data []byte) *Frame {
-    return &Frame{FIN: true, Opcode: OpPing, Payload: data}
+	return &Frame{FIN: true, Opcode: OpPing, Payload: data}
 }
 func NewPongFrame(data []byte) *Frame {
-    return &Frame{FIN: true, Opcode: OpPong, Payload: data}
+	return &Frame{FIN: true, Opcode: OpPong, Payload: data}
 }
