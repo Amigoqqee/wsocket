@@ -16,6 +16,10 @@ type Conn struct {
 	maxMsgSize int64
 
 	OnPong func(data []byte)
+
+	fragmenting    bool
+	fragmentOpcode byte
+	fragmentBuf    []byte
 }
 
 func NewConn(rwc net.Conn, br *bufio.Reader, maxMsgSize int64) *Conn {
@@ -40,12 +44,40 @@ func (c *Conn) ReadMessage() (opcode byte, payload []byte, err error) {
 			continue
 		}
 
-		if frame.Opcode == OpText && !utf8.Valid(frame.Payload) {
-			c.Close(CloseInvalidPayload, "invalid UTF-8")
-			return 0, nil, fmt.Errorf("invalid UTF-8")
+		if frame.Opcode == OpContinuation {
+			if !c.fragmenting {
+				return 0, nil, fmt.Errorf("unexpected continuation")
+			}
+			c.fragmentBuf = append(c.fragmentBuf, frame.Payload...)
+			if frame.FIN {
+				opcode := c.fragmentOpcode
+				data := c.fragmentBuf
+				c.fragmenting = false
+				c.fragmentBuf = nil
+				if opcode == OpText && !utf8.Valid(data) {
+					c.Close(CloseInvalidPayload, "invalid UTF-8")
+					return 0, nil, fmt.Errorf("invalid UTF-8")
+				}
+				return opcode, data, nil
+			}
+			continue
 		}
 
-		return frame.Opcode, frame.Payload, nil
+		if c.fragmenting {
+			return 0, nil, fmt.Errorf("new data frame during fragmentation")
+		}
+
+		if frame.FIN {
+			if frame.Opcode == OpText && !utf8.Valid(frame.Payload) {
+				c.Close(CloseInvalidPayload, "invalid UTF-8")
+				return 0, nil, fmt.Errorf("invalid UTF-8")
+			}
+			return frame.Opcode, frame.Payload, nil
+		}
+
+		c.fragmenting = true
+		c.fragmentOpcode = frame.Opcode
+		c.fragmentBuf = append([]byte{}, frame.Payload...)
 	}
 }
 
