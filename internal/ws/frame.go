@@ -132,3 +132,16 @@ func maskPayload(payload []byte, key [4]byte) {
 		payload[i] ^= key[i%4]
 	}
 }
+
+func NewTextFrame(data []byte) *Frame {
+    return &Frame{FIN: true, Opcode: OpText, Payload: data}
+}
+func NewBinaryFrame(data []byte) *Frame {
+    return &Frame{FIN: true, Opcode: OpBinary, Payload: data}
+}
+func NewPingFrame(data []byte) *Frame {
+    return &Frame{FIN: true, Opcode: OpPing, Payload: data}
+}
+func NewPongFrame(data []byte) *Frame {
+    return &Frame{FIN: true, Opcode: OpPong, Payload: data}
+}
