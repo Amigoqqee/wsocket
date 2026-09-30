@@ -39,13 +39,23 @@ func handleConn(conn net.Conn) {
 
 	fmt.Printf("[ws] connected: %s\n", conn.RemoteAddr())
 
-	buf := make([]byte, 4096)
 	for {
-		n, err := br.Read(buf)
+		frame, err := ws.ReadFrame(br)
 		if err != nil {
-			fmt.Printf("[ws] disconnected: %s\n", conn.RemoteAddr())
+			fmt.Printf("[ws] read: %v\n", err)
 			return
 		}
-		fmt.Printf("[ws] raw frame bytes: %x\n", buf[:n])
+
+		fmt.Printf("[ws] FIN=%v opcode=0x%x len=%d payload=%q\n",
+			frame.FIN, frame.Opcode, len(frame.Payload), string(frame.Payload))
+
+		if frame.Opcode == ws.OpText {
+			echo := &ws.Frame{
+				FIN:     true,
+				Opcode:  ws.OpText,
+				Payload: frame.Payload,
+			}
+			ws.WriteFrame(conn, echo)
+		}
 	}
 }
