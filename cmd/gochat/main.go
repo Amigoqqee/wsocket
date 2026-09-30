@@ -28,34 +28,26 @@ func main() {
 	}
 }
 
-func handleConn(conn net.Conn) {
-	defer conn.Close()
-
-	br, err := ws.Upgrade(conn)
+func handleConn(rawConn net.Conn) {
+	br, err := ws.Upgrade(rawConn)
 	if err != nil {
-		fmt.Printf("[ws] upgrade failed: %v\n", err)
+		rawConn.Close()
 		return
 	}
 
-	fmt.Printf("[ws] connected: %s\n", conn.RemoteAddr())
+	conn := ws.NewConn(rawConn, br, ws.DefaultMaxMessageSize)
+	defer conn.ForceClose()
 
 	for {
-		frame, err := ws.ReadFrame(br, ws.DefaultMaxMessageSize, true)
+		opcode, data, err := conn.ReadMessage()
 		if err != nil {
-			fmt.Printf("[ws] read: %v\n", err)
+			if !ws.IsCloseError(err) {
+				fmt.Printf("[ws] error: %v\n", err)
+			}
 			return
 		}
-
-		fmt.Printf("[ws] FIN=%v opcode=0x%x len=%d payload=%q\n",
-			frame.FIN, frame.Opcode, len(frame.Payload), string(frame.Payload))
-
-		if frame.Opcode == ws.OpText {
-			echo := &ws.Frame{
-				FIN:     true,
-				Opcode:  ws.OpText,
-				Payload: frame.Payload,
-			}
-			ws.WriteFrame(conn, echo)
+		if opcode == ws.OpText {
+			conn.WriteText(data)
 		}
 	}
 }

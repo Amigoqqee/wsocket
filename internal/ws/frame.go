@@ -133,6 +133,13 @@ func maskPayload(payload []byte, key [4]byte) {
 	}
 }
 
+func NewCloseFrame(code uint16, reason string) *Frame {
+    payload := make([]byte, 2+len(reason))
+    binary.BigEndian.PutUint16(payload[:2], code)
+    copy(payload[2:], reason)
+    return &Frame{FIN: true, Opcode: OpClose, Payload: payload}
+}
+
 func NewTextFrame(data []byte) *Frame {
     return &Frame{FIN: true, Opcode: OpText, Payload: data}
 }
