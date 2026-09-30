@@ -29,7 +29,7 @@ func (f *Frame) IsControl() bool {
 	return f.Opcode >= OpClose
 }
 
-func ReadFrame(r io.Reader, maxPayloadSize int64) (*Frame, error) {
+func ReadFrame(r io.Reader, maxPayloadSize int64, requireMask bool) (*Frame, error) {
 	//1-2 byte
 	header := make([]byte, 2)
 	if _, err := io.ReadFull(r, header); err != nil {
@@ -49,6 +49,10 @@ func ReadFrame(r io.Reader, maxPayloadSize int64) (*Frame, error) {
 
 	//Byte 1
 	f.Masked = header[1]&0x80 != 0
+	if requireMask && !f.Masked {
+		return nil, fmt.Errorf("client frame must be masked")
+	}
+
 	payloadLen := uint64(header[1] & 0x7F)
 	switch {
 	case payloadLen == 126:

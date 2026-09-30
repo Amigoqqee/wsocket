@@ -40,7 +40,7 @@ func handleConn(conn net.Conn) {
 	fmt.Printf("[ws] connected: %s\n", conn.RemoteAddr())
 
 	for {
-		frame, err := ws.ReadFrame(br, ws.DefaultMaxMessageSize)
+		frame, err := ws.ReadFrame(br, ws.DefaultMaxMessageSize, true)
 		if err != nil {
 			fmt.Printf("[ws] read: %v\n", err)
 			return
